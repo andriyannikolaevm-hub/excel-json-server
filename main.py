@@ -1,21 +1,30 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, File, UploadFile
 import pandas as pd
+import io
 import requests
-
-MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/ВСТАВИШЬ_ПОЗЖЕ"
+import os
 
 app = FastAPI()
 
+# Webhook Nodul / Make куда отправляем JSON
+MAKE_WEBHOOK_URL = os.getenv("MAKE_WEBHOOK_URL", "")
+
 @app.post("/upload")
-async def upload_excel(file: UploadFile = File(...)):
-    df = pd.read_excel(file.file)
-    df.columns = [c.strip().lower() for c in df.columns]
+async def upload_excel(file: bytes = File(...)):
+    try:
+        # Загружаем Excel из байтов
+        excel_stream = io.BytesIO(file)
 
-    name_col = next((c for c in df.columns if c in ["наименование работ", "name", "работа"]), None)
-    unit_col = next((c for c in df.columns if c in ["единица измерения", "unit", "ед"]), None)
+        df = pd.read_excel(excel_stream)
 
-    records = [{"name": str(row[name_col]), "unit": str(row[unit_col])} for _, row in df.iterrows()]
+        records = df.to_dict(orient="records")
 
-    requests.post(MAKE_WEBHOOK_URL, json=records)
+        # отправка обратно в Nodul
+        if MAKE_WEBHOOK_URL:
+            requests.post(MAKE_WEBHOOK_URL, json=records)
 
-    return {"sent": len(records), "ok": True}
+        return {"status": "success", "rows": len(records)}
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
