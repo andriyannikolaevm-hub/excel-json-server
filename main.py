@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File
 import pandas as pd
 import io
 import requests
@@ -6,7 +6,7 @@ import os
 
 app = FastAPI()
 
-# Webhook Nodul / Make куда отправляем JSON
+# Webhook Nodul
 MAKE_WEBHOOK_URL = os.getenv("MAKE_WEBHOOK_URL", "")
 
 @app.post("/upload")
@@ -27,4 +27,3 @@ async def upload_excel(file: bytes = File(...)):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
