@@ -6,29 +6,28 @@ import os
 
 app = FastAPI()
 
+# Webhook Nodul — куда отправляем JSON
 MAKE_WEBHOOK_URL = os.getenv("MAKE_WEBHOOK_URL", "")
+
 
 @app.post("/upload")
 async def upload_excel(file: UploadFile = File(...)):
     try:
-        # читаем бинарные данные
-        excel_bytes = await file.read()
+        # Чтение Excel из бинарного потока
+        excel_stream = await file.read()
+        df = pd.read_excel(io.BytesIO(excel_stream), engine="openpyxl")
 
-        # создаём поток
-        excel_stream = io.BytesIO(excel_bytes)
-
-        # Чётко указываем движок Excel
-        df = pd.read_excel(excel_stream, engine="openpyxl")
-
+        # Excel → JSON
         records = df.to_dict(orient="records")
 
-        # отправляем обратно в Nodul Webhook
+        # Если есть вебхук Nodul — отправляем в Nodul
         if MAKE_WEBHOOK_URL:
-            requests.post(MAKE_WEBHOOK_URL, json=records)
+            requests.post(MAKE_WEBHOOK_URL, json={"data": records})
 
         return {
             "status": "success",
-            "rows": len(records)
+            "rows": len(records),
+            "data": records
         }
 
     except Exception as e:
@@ -36,3 +35,4 @@ async def upload_excel(file: UploadFile = File(...)):
             "status": "error",
             "message": str(e)
         }
+
